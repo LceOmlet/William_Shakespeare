@@ -103,7 +103,7 @@ class Dataset:
         """
         rules_dict = {rule.rule_id: rule.rule_text  for rule in rules}
         
-        for task in tqdm(self.tasks):
+        for tid, task in tqdm(enumerate(self.tasks), total=len(self.tasks)):
             
             # 这里假设有一个方法可以根据问题和规则生成正确答案和相关规则
             if args.fix_rule and task.correct_rule_id:
@@ -113,6 +113,9 @@ class Dataset:
             # else:
             task.set_answer(self.answer(task, rules_dict))
             task.print_result()
+            
+            if (tid + 1) % 5 == 0:
+                self.evaluate(tid + 1)
             
             
 
@@ -142,9 +145,9 @@ class Dataset:
             
             # if num_true > num_false:
             # choices[number_to_uppercase_letter(cid)] = num_true - num_false
-        deduction = openai_client.deduce_agg(task.question_text, rules_text, deductions)
-        
+        deduction = openai_client.deduce_agg(task.full_text, task.choices, rules_text, deductions)
         answer = ""
+        # raise RuntimeError()
         
         while not answer:
             answer_maybe = openai_client.select_answer(task.question_text, rules_text, deduction, len(task.choices))[0]
@@ -181,6 +184,19 @@ class Dataset:
                     
         # 模拟获取相关规则的逻辑
         return rela_rules  # 示例返回值
+    
+    def evaluate(self, task_num):
+        evaluator = Evaluator(self.tasks[:task_num])
+
+        # Calculate the scores
+        accuracy = evaluator.accuracy()
+        hit_score = evaluator.hit_score()
+        final_score = evaluator.final_score()
+
+        # Print the results
+        print(f"Accuracy: {accuracy}")
+        print(f"Hit Score: {hit_score}")
+        print(f"Final Score: {final_score}")
 
 
 # 从文件加载数据并创建对象
@@ -199,7 +215,7 @@ rules = load_rules("rules1.json")
 dev_tasks = load_tasks("dev.json")
 test_tasks = load_tasks("test1.json")
 
-dev_tasks = dev_tasks[:5]
+# dev_tasks = dev_tasks[:5]
 
 # 创建数据集对象
 dev_dataset = Dataset(dev_tasks)

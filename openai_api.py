@@ -3,18 +3,22 @@ from utils import number_to_uppercase_letter
 
 YES_OR_NO_BASE = "你是一个简单的判别模型，在你输出的内容中仅仅可以输出是和否其中的一个。"
 
-DEDUCE_BASE = "给定问题和可能的答案，组合给定的完全正确的规则，经演逐步的绎推理论证和必要的数学运算证明答案的正确性，你的输出将给出完整的演绎结果。" +\
+DEDUCE_BASE = "给定需解答的问题和选择，组合给定的完全正确的规则，经演逐步的绎推理论证和必要的数学运算证明答案的正确性，你的输出将给出完整的演绎结果和最终判断。" +\
+    "不需要对错误答案进行改正，指出错误即可，否则会导致后续判断中，将错误选项与你所改正的正确结论混淆。" +\
     "为了演绎的稳固性，深入理解规则，只有这些规则是完全正确的。"+\
     "若需选择正确选项，推理正确结论并坚决排除错误选项。否则推理错误选项并坚决排除正确选项。" +\
-            "判断答案中是否有规则中明确定义的专有名词（如级别名称，单位名称等），将可能的答案中的一切同义词或程度更低或更高的词视为无效或错误。你的输出将给出完整的演绎结果。"
+            "判断答案中是否有规则中明确定义的专有名词（如级别名称，单位名称等），将可能的答案中的一切同义词或程度更低或更高的词视为无效或错误。你的输出将给出完整的演绎结果。" +\
+                "严格检查数字是否正确，数字不正确即有误。"
 
-DEDUCE_ALL_BASE = "给定问题，可能的答案（仅有一个是正确的）和完全正确的规则，以及先前的一些可能包含错误的推导过程，再给出一系列推导过程。" +\
+DEDUCE_ALL_BASE = "给定完全正确的规则，以及先前的一些可能包含错误的推导过程，需解答的问题和选择（仅有一个是正确的）,你的任务是再给出一系列推导过程，最终确认结论对应的选项。" +\
+            "不要将题目中的选项内容与推理给出的改正后的内容混淆，需专注于判断选项内容的正确性，否则将改正后的选项与题目中的选项内容混淆后，必然导致推理错误。" +\
             "为了演绎的稳固性，深入理解规则，只有这些规则是完全正确的。"+\
             "一步步推理以保证一致性，避免引入多重否定和从而增加语义理解难度。" +\
-                "判断答案中是否有规则中明确定义的专有名词（如级别名称，单位名称等），将可能的答案中的一切同义词或程度更低或更高的词视为无效或错误。" +\
+                "判断答案中是否有规则中明确定义的术语和专有名词（如级别名称，单位名称等），将可能的答案中的一切同义词或程度更低或更高的词视为无效或错误。" +\
                 "对于每个问题**仅有**一个可选选项，所有选项之间的关系是并列的，彼此相互独立，选项之间没有因果关系。"+\
                     "若多个推理结果认为存在多个可选选项，继续推理，直到排除所有不可选的选项或找到最可选的选项。" +\
             "若需选择正确选项，推理正确结论并坚决排除错误选项，找出唯一正确的选项。否则推理错误选项并坚决排除正确选项，找出唯一的错误选项。" +\
+                "严格检查数字是否正确，数字不正确即有误。" +\
                 "你的输出将给出完整的演绎结果。"
 
 CLASSIFICATION_BASE = lambda X:f"判别唯一正确的选项，你的输出内容仅能为：\"分类结果：X\"。X是{', '.join(X)}中的一个。"
@@ -86,20 +90,21 @@ class OpenAIClient:
             },
             {
                 "role": "assistant",
-                "content": "根据给出的信息，我们逐步演绎如下：",
+                "content": "根据给出的信息，我们逐步演绎如下：\n\n",
             },
         ]
         completions = self.get_responses(messages, num_completions, stop=[])
         return completions
     
-    def deduce_agg(self, task_text, rules_text, deductions: List[str]) -> List[str]:
+    def deduce_agg(self, task_text, answers, rules_text, deductions: List[str]) -> List[str]:
         for idx, deduction in enumerate(deductions):
             choice_of_the_deduction = number_to_uppercase_letter(idx)
-            deductions[idx] = choice_of_the_deduction + ". " + deduction
-        reasoning = "关于每一个答案的演绎过程：" + "\n".join(deductions)
+            deductions[idx] = choice_of_the_deduction + ". "  + answers[idx] + "：" + deduction
+        reasoning = "关于每一个答案的演绎过程：" + "\n```\n" + "\n".join(deductions) + "\n```"
         rule_text = "规则：" + rules_text
+        task_text = "需解答的" + task_text
         
-        prompt = "\n".join([task_text, rule_text, reasoning])
+        prompt = "\n\n\n".join([rule_text, reasoning, task_text])
         
         messages = [
             { 
@@ -110,11 +115,12 @@ class OpenAIClient:
                 "role": "user",
                 "content": prompt,
             },
-            {
-                "role": "assistant",
-                "content": "根据给出的信息，我们逐步演绎如下：",
-            },
+            # {
+            #     "role": "assistant",
+            #     "content": "已获取具体规则、推导过程和问题、选项。内容详尽，无需询问额外信息。根据给出的信息，我们逐步演绎如下：",
+            # },
         ]
+        # print(messages)
         completions = self.get_responses(messages, num_completions=1, stop=[])
         print(completions)
         return completions
@@ -143,8 +149,9 @@ class OpenAIClient:
             },
         ]
         print(reasoning)
+        # raise RuntimeError()
         completions = self.get_responses(messages, num_completions=1, stop=[])
-        print(completions)
+        # print(completions)
         return completions
 
     def get_responses(self, messages: List[Dict[str, str]], num_completions=None, stop=None) -> List[str]:
