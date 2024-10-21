@@ -132,11 +132,11 @@ class Dataset:
         
         choices = dict()
         
-        deductions = []
+        # deductions = []
         for cid, choice in enumerate(task.choices):
             rules_text = "\n".join(task_rules_text)
-            deduction = openai_client.deduce(task.question_text, choice, rules_text, num_completions=1)[0]
-            deductions.append(deduction)
+        #     deduction = openai_client.deduce(task.question_text, choice, rules_text, num_completions=1)[0]
+        #     deductions.append(deduction)
             # judegements = openai_client.judge_answer(task.question_text, choice, rules_text, deduction)
             
             # num_true, num_false = 0, 0
@@ -147,7 +147,9 @@ class Dataset:
             
             # if num_true > num_false:
             # choices[number_to_uppercase_letter(cid)] = num_true - num_false
-        deduction = openai_client.deduce_agg(task.full_text, task.choices, rules_text, deductions)
+        # deduction = openai_client.deduce_agg(task.full_text, task.choices, rules_text, deductions)
+        deduction = openai_client.deduce_direct(task.full_text, rules_text)
+        
         answer = ""
         # raise RuntimeError()
         
