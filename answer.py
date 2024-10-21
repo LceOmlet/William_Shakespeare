@@ -11,7 +11,7 @@ from evaluator import Evaluator
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--max_tokens', default=1024, type=int)
+parser.add_argument('--max_tokens', default=2048, type=int)
 parser.add_argument('--fix_rule', default=True, type=bool)
 args = parser.parse_args()
 
@@ -86,6 +86,8 @@ class Task:
         print(f"问题: {self.question_text}")
         print(f"已选答案: {self.answer}")
         print(f"正确答案: {self.correct_answer}")
+                # if choice == task.answer:
+        print(f"答案是否正确：{self.answer == self.correct_answer}")
         print(f"待选答案: {self.choices}")
         print(f"已选规则: {self.get_rule_id()}")
         print(f"相关规则: {self.correct_rule_id}")
@@ -151,6 +153,8 @@ class Dataset:
         
         while not answer:
             answer_maybe = openai_client.select_answer(task.question_text, rules_text, deduction, len(task.choices))[0]
+            # print(answer_maybe)
+            # raise RuntimeError()
             for letter in [number_to_uppercase_letter(i) for i in range(len(task.choices))]:
                 if letter in answer_maybe:
                     answer = letter
@@ -159,6 +163,7 @@ class Dataset:
         # choices = list(zip(*sorted(choices.items(), key=lambda x: x[1])))[0]
         # choice = choices[0]
         choice = answer
+
             
         return choice  # 示例返回值
     
